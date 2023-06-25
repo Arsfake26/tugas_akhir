@@ -1,5 +1,8 @@
 import rclpy
 from rclpy.node import Node
+from threading import Event
+import logging
+import re 
 
 from std_msgs.msg import String
 from geometry_msgs.msg import Pose
@@ -17,15 +20,24 @@ from cflib.crazyflie.log import LogConfig
 from cflib.utils import uri_helper
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.positioning.motion_commander import MotionCommander
-
+from examples.multiranger.wall_following.wall_following import WallFollowing
+from cflib.utils.multiranger import Multiranger
+from cflib.crazyflie.syncLogger import SyncLogger
 import math
+import time
 
 from math import pi
+from math import degrees
 
-URI = uri_helper.uri_from_env(default='radio://0/40/2M/E7E7E7E703')
+
+URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
 FLYING = True
+
 def radians(degrees):  
     return degrees * math.pi / 180.0
+BOX_LIMIT = 0.3
+
+position_estimate = [0, 0]
 
 
 class CrazyfliePublisher(Node):
@@ -47,21 +59,48 @@ class CrazyfliePublisher(Node):
         self._cf.connection_failed.add_callback(self._connection_failed)
         self._cf.connection_lost.add_callback(self._connection_lost)
         self._cf.open_link(link_uri)
-
+        
 
         self.ranges= [0.0, 0.0, 0.0, 0.0, 0.0]
         self.create_timer(1.0/30.0, self.publish_laserscan_data)
+        lg_stab = LogConfig(name='Multiranger',period_in_ms=10)
+        lg_stab.add_variable('range.front', 'float')
+        front = float('range.front')
+
+        
         if FLYING:
             timer_period = 0.1  # seconds
             self.create_timer(timer_period, self.sendHoverCommand)
+            
+
+            while front > BOX_LIMIT:
+                self.hover = {'x': 0.2, 'y': 0.0, 'z': 0.0, 'yaw': 0.0, 'height': 0.3}
+                self._cf.commander.send_hover_setpoint(
+                    self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
+                
+                if front <= BOX_LIMIT:
+                    self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 90, 'height': 0.3}
+                    self._cf.commander.send_hover_setpoint(
+                        self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
+                    
+                    if front <= BOX_LIMIT:
+                        self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': -180, 'height': 0.3}
+                        self._cf.commander.send_hover_setpoint(
+                            self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
+
+            
+            
+
+            
+            
 
 
-            self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 0.0, 'height': 0.3}
+            
+            
+            
+            
 
 
-            self._cf.commander.send_hover_setpoint(
-                self.hover['x'], self.hover['y'], self.hover['yaw'],
-                self.hover['height'])
 
     def publish_laserscan_data(self):
 
@@ -102,6 +141,7 @@ class CrazyfliePublisher(Node):
         self._lg_range.add_variable('range.right', 'uint16_t')
         self._lg_range.add_variable('range.left', 'uint16_t')
         self._lg_range.add_variable('range.back', 'uint16_t')
+        
 
         try:
             self._cf.log.add_config(self._lg_stab)
@@ -166,6 +206,7 @@ class CrazyfliePublisher(Node):
         left_range = float(data.get('range.left'))/1000.0
         back_range = float(data.get('range.back'))/1000.0
         right_range = float(data.get('range.right'))/1000.0
+        
         if front_range > max_range:
             front_range = float("inf")
         if left_range > max_range:
@@ -184,6 +225,7 @@ class CrazyfliePublisher(Node):
         self.hover['y'] = twist.linear.y
         self.hover['z'] = twist.linear.z
         self.hover['yaw'] = -1* math.degrees(twist.angular.z)
+
         
 
 
@@ -260,17 +302,30 @@ class CrazyfliePublisher(Node):
         t_cf.transform.rotation.w = q_cf[3]
         self.tfbr.sendTransform(t_cf)
 
+    
+
+
+    
+                    
+
+
+
+
         
 
 def main(args=None):
 
+   
+
+    
     cflib.crtp.init_drivers()
 
     rclpy.init(args=args)
 
     crazyflie_publisher = CrazyfliePublisher(URI)
-
+    
     rclpy.spin(crazyflie_publisher)
+    
 
     crazyflie_publisher.destroy_node()
     rclpy.shutdown()
@@ -279,7 +334,10 @@ def main(args=None):
 
 
 if __name__ == '__main__':
+    
     main()
+    
+    
 
 
 
