@@ -2,7 +2,6 @@ import rclpy
 from rclpy.node import Node
 from threading import Event
 import logging
-import re 
 
 from std_msgs.msg import String
 from geometry_msgs.msg import Pose
@@ -37,7 +36,7 @@ def radians(degrees):
     return degrees * math.pi / 180.0
 BOX_LIMIT = 0.3
 
-position_estimate = [0, 0]
+
 
 
 class CrazyfliePublisher(Node):
@@ -59,37 +58,47 @@ class CrazyfliePublisher(Node):
         self._cf.connection_failed.add_callback(self._connection_failed)
         self._cf.connection_lost.add_callback(self._connection_lost)
         self._cf.open_link(link_uri)
-        
 
-        self.ranges= [0.0, 0.0, 0.0, 0.0, 0.0]
+
+
+
+        self.ranges = [0.0,0.0,0.0,0.0,0.0]
         self.create_timer(1.0/30.0, self.publish_laserscan_data)
-        lg_stab = LogConfig(name='Multiranger',period_in_ms=10)
-        lg_stab.add_variable('range.front', 'float')
-        front = float('range.front')
-
         
-        if FLYING:
-            timer_period = 0.1  # seconds
+        while FLYING:
+                        # seconds
+            
+            timer_period = 0.1
             self.create_timer(timer_period, self.sendHoverCommand)
+            self.hover = {'x': 0.1, 'y': 0.0, 'z': 0.0, 'yaw': 0.0, 'height': 0.3}
             
-
-            while front > BOX_LIMIT:
-                self.hover = {'x': 0.2, 'y': 0.0, 'z': 0.0, 'yaw': 0.0, 'height': 0.3}
-                self._cf.commander.send_hover_setpoint(
-                    self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
+            self._cf.commander.send_hover_setpoint(self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
+            self.create_timer(1.0/30.0, self.publish_laserscan_data)
+            
+            if float(self.ranges[2]) <= 0.3:
+                self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 80.0, 'height': 0.3}
+                self._cf.commander.send_hover_setpoint(self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
                 
-                if front <= BOX_LIMIT:
-                    self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 90, 'height': 0.3}
-                    self._cf.commander.send_hover_setpoint(
-                        self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
+                self.create_timer(1.0/30.0, self.publish_laserscan_data)
+                #time.sleep(0.1)
+                if float(self.ranges[2]) <= 0.3:
+                    self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': -160.0, 'height': 0.3}
+                    self._cf.commander.send_hover_setpoint(self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
                     
-                    if front <= BOX_LIMIT:
-                        self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': -180, 'height': 0.3}
-                        self._cf.commander.send_hover_setpoint(
-                            self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
+                    self.create_timer(1.0/30.0, self.publish_laserscan_data)
+            time.sleep(0.2) 
+                
+            
+                
+                    
 
             
+            #time.sleep(0.1)
             
+
+
+                
+                
 
             
             
@@ -158,7 +167,7 @@ class CrazyfliePublisher(Node):
                   '{} not found in TOC'.format(str(e)))
         except AttributeError:
             print('Could not add Stabilizer log config, bad configuration.')
-
+    
 
     def _disconnected():
         print('disconnected')
@@ -224,7 +233,9 @@ class CrazyfliePublisher(Node):
         self.hover['x'] = twist.linear.x
         self.hover['y'] = twist.linear.y
         self.hover['z'] = twist.linear.z
-        self.hover['yaw'] = -1* math.degrees(twist.angular.z)
+        self.hover['yaw'] = -0.2* math.degrees(twist.angular.z)
+    
+
 
         
 
@@ -317,7 +328,7 @@ def main(args=None):
 
    
 
-    
+    time.sleep(2)
     cflib.crtp.init_drivers()
 
     rclpy.init(args=args)
