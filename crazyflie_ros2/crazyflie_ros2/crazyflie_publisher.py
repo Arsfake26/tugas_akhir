@@ -19,9 +19,7 @@ from cflib.crazyflie.log import LogConfig
 from cflib.utils import uri_helper
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.positioning.motion_commander import MotionCommander
-from examples.multiranger.wall_following.wall_following import WallFollowing
-from cflib.utils.multiranger import Multiranger
-from cflib.crazyflie.syncLogger import SyncLogger
+
 import math
 import time
 
@@ -34,7 +32,6 @@ FLYING = True
 
 def radians(degrees):  
     return degrees * math.pi / 180.0
-BOX_LIMIT = 0.3
 
 
 
@@ -65,36 +62,24 @@ class CrazyfliePublisher(Node):
         self.ranges = [0.0,0.0,0.0,0.0,0.0]
         self.create_timer(1.0/30.0, self.publish_laserscan_data)
         
-        while FLYING:
+        if FLYING:
                         # seconds
             
             timer_period = 0.1
             self.create_timer(timer_period, self.sendHoverCommand)
-            self.hover = {'x': 0.1, 'y': 0.0, 'z': 0.0, 'yaw': 0.0, 'height': 0.3}
+            self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 0.0, 'height': 0.3}
             
             self._cf.commander.send_hover_setpoint(self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
-            self.create_timer(1.0/30.0, self.publish_laserscan_data)
             
-            if float(self.ranges[2]) <= 0.3:
-                self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 80.0, 'height': 0.3}
-                self._cf.commander.send_hover_setpoint(self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
-                
-                self.create_timer(1.0/30.0, self.publish_laserscan_data)
-                #time.sleep(0.1)
-                if float(self.ranges[2]) <= 0.3:
-                    self.hover = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': -160.0, 'height': 0.3}
-                    self._cf.commander.send_hover_setpoint(self.hover['x'], self.hover['y'], self.hover['yaw'],self.hover['height'])
-                    
-                    self.create_timer(1.0/30.0, self.publish_laserscan_data)
-            time.sleep(0.2) 
-                
-            
-                
-                    
 
+            #time.sleep(0.2)
+                    
+                    
+             
+
+    
             
-            #time.sleep(0.1)
-            
+
 
 
                 
@@ -234,9 +219,6 @@ class CrazyfliePublisher(Node):
         self.hover['y'] = twist.linear.y
         self.hover['z'] = twist.linear.z
         self.hover['yaw'] = -0.2* math.degrees(twist.angular.z)
-    
-
-
         
 
 
